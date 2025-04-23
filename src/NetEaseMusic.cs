@@ -176,5 +176,47 @@ namespace NetEaseMusic_MCP
             nextButton?.Click();
             return "OK";
         }
+
+        // 当前歌曲是否已经喜欢
+        [McpServerTool, Description("Check if the current music is liked.")]
+        public static bool IsLike()
+        {
+            if (!HasPlayList())
+            {
+                return false;
+            }
+            var likeButton = FindActionButton(ActionButton.Like);
+            if (likeButton?.GetAttribute("data-log")?.Contains("\"0\"") ?? false)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        // 喜欢
+        [McpServerTool, Description("Like the current music if not liked.")]
+        public static void Like()
+        {
+            if (!HasPlayList() && IsLike())
+            {
+                return;
+            }
+            var likeButton = FindActionButton(ActionButton.Like);
+            likeButton?.Click();
+            return;
+        }
+
+        // 取消喜欢
+        [McpServerTool, Description("Unlike the current music if liked.")]
+        public static void Unlike()
+        {
+            if (!HasPlayList() && !IsLike())
+            {
+                return;
+            }
+            var likeButton = FindActionButton(ActionButton.Like);
+            likeButton?.Click();
+            return;
+        }
     }
 }

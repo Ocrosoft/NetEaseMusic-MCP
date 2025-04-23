@@ -5,6 +5,7 @@ using OpenQA.Selenium.Internal;
 using OpenQA.Selenium.Support.UI;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 namespace NetEaseMusic_MCP
 {
@@ -65,7 +66,7 @@ namespace NetEaseMusic_MCP
             Console.WriteLine(driver);
             if (string.IsNullOrEmpty(driver) || !Directory.Exists(driver))
             {
-                driver = Path.GetDirectoryName(Path.GetFullPath("chromedriver.exe"))!;
+                driver = Path.GetDirectoryName(AppContext.BaseDirectory)!;
             }
             driver = Path.GetFullPath(driver);
             Console.WriteLine($"Using ChromeDriver: {driver}");
@@ -280,10 +281,11 @@ namespace NetEaseMusic_MCP
             return "OK";
         }
 
-        private static ReadOnlyCollection<IWebElement> _searchResult = new([]);
+        private static IWebElement? _searchResultDiv = null;
+        private static ReadOnlyCollection<IWebElement> _searchResults = new([]);
 
         // 单曲搜索
-        [McpServerTool, Description("Search music with keyword.")]
+        [McpServerTool, Description("Search music with keyword. Only first page will be return.")]
         public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
         {
             var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
@@ -293,8 +295,15 @@ namespace NetEaseMusic_MCP
                 ?? throw new InvalidOperationException("Search input not found.");
             var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
             action.MoveToElement(searchWrapper).Click().Perform();
-            var clearButton = searchWrapper.FindElement(By.ClassName("cmd-input-clearbtn"));
-            clearButton.Click();
+
+            try
+            {
+                // 允许不存在
+                var clearButton = searchWrapper.FindElement(By.ClassName("cmd-input-clearbtn"));
+                clearButton?.Click();
+            }
+            catch { }
+
             await Task.Delay(1000);
             searchInput.SendKeys(keyword);
             await Task.Delay(1000);
@@ -318,14 +327,17 @@ namespace NetEaseMusic_MCP
                 ?? throw new Exception("Tab1 not found.");
             tab1.Click();
             await Task.Delay(1000);
+            var prompt = resultDiv.FindElement(By.ClassName("prompt"));
+            var musicCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
 
             // 获取搜索结果
-            var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"))
-                ?? throw new Exception("Result list not found.");
+            var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));
             var resultItems = resultList.FindElements(By.XPath("//div[contains(@data-log, 'cell_pc_songlist_song')]"));
-            _searchResult = resultItems;
 
-            return string.Join("\n---\n", resultItems.Select(item => $"""
+            _searchResultDiv = resultDiv;
+            _searchResults = resultItems;
+
+            return $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
                 Index: {item.FindElement(By.ClassName("td-num")).Text}
                 Name: {item.FindElement(By.ClassName("title")).Text}
                 Artists: {item.FindElement(By.ClassName("artists")).GetAttribute("title")}
@@ -348,15 +360,29 @@ namespace NetEaseMusic_MCP
                 throw new ArgumentNullException(nameof(index), "Index cannot be null or empty.");
             }
 
-            if (_searchResult.Count == 0)
+            if (_searchResults.Count == 0)
             {
                 throw new InvalidOperationException("No search result found.");
             }
 
-            var item = _searchResult.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
+            var item = _searchResults.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
                 ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
             var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
             action.MoveToElement(item).DoubleClick().Perform();
+        }
+
+        // 播放搜索结果中的所有歌曲
+        [McpServerTool, Description("Play all the music in search result. Including musics not in the first page.")]
+        public static void PlayAllInSearchResult()
+        {
+            if (_searchResultDiv == null)
+            {
+                throw new InvalidOperationException("No search result found.");
+            }
+
+            // class: play-all
+            var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
+            playAllButton.Click();
         }
     }
 }

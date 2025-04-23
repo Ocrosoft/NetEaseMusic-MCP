@@ -194,28 +194,36 @@ namespace NetEaseMusic_MCP
 
         // 喜欢
         [McpServerTool, Description("Like the current music if not liked.")]
-        public static void Like()
+        public static bool Like()
         {
-            if (!HasPlayList() && IsLike())
+            if (!HasPlayList())
             {
-                return;
+                return false;
+            }
+            if (IsLike())
+            {
+                return true;
             }
             var likeButton = FindActionButton(ActionButton.Like);
             likeButton?.Click();
-            return;
+            return true;
         }
 
         // 取消喜欢
         [McpServerTool, Description("Unlike the current music if liked.")]
-        public static void Unlike()
+        public static bool Unlike()
         {
-            if (!HasPlayList() && !IsLike())
+            if (!HasPlayList())
             {
-                return;
+                return false;
+            }
+            if (!IsLike())
+            {
+                return true;
             }
             var likeButton = FindActionButton(ActionButton.Like);
             likeButton?.Click();
-            return;
+            return true;
         }
 
         // 获取音量
@@ -354,36 +362,40 @@ namespace NetEaseMusic_MCP
 
         // 播放搜索结果
         [McpServerTool, Description("Play the music in search result. Will add to current playlist.")]
-        public static void PlayInSearchResult([Description("The 'Index' in search result")] string index)
+        public static bool PlayInSearchResult([Description("The 'Index' in search result")] string index)
         {
             if (string.IsNullOrEmpty(index))
             {
-                throw new ArgumentNullException(nameof(index), "Index cannot be null or empty.");
+                return false;
             }
 
             if (_searchResults.Count == 0)
             {
-                throw new InvalidOperationException("No search result found.");
+                return false;
             }
 
             var item = _searchResults.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
                 ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
             var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
             action.MoveToElement(item).DoubleClick().Perform();
+
+            return true;
         }
 
         // 播放搜索结果中的所有歌曲
         [McpServerTool, Description("Play all the music in search result. Will replace current playlist.")]
-        public static void PlayAllInSearchResult()
+        public static bool PlayAllInSearchResult()
         {
             if (_searchResultDiv == null)
             {
-                throw new InvalidOperationException("No search result found.");
+                return false;
             }
 
             // class: play-all
             var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
             playAllButton.Click();
+
+            return true;
         }
 
         // 播放每日推荐

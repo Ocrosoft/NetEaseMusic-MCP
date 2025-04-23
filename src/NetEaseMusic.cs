@@ -300,11 +300,15 @@ namespace NetEaseMusic_MCP
         }
 
         private static IWebElement? _searchResultDiv = null;
+        enum SearchResultType
+        {
+            Music = 0,
+            MusicList = 1,
+        }
+        private static SearchResultType _searchResultType = SearchResultType.Music;
         private static ReadOnlyCollection<IWebElement> _searchResults = new([]);
 
-        // 单曲搜索
-        [McpServerTool, Description("Search music with keyword. Note that the result may imcomplete.")]
-        public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
+        private static async Task<IWebElement> DoSearch(string keyword)
         {
             var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
                   .Where(i => i.Displayed).FirstOrDefault()
@@ -340,6 +344,15 @@ namespace NetEaseMusic_MCP
                 }
                 return result;
             });
+
+            return resultDiv;
+        }
+
+        // 单曲搜索
+        [McpServerTool, Description("Search music with keyword. Note that the result may imcomplete.")]
+        public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
+        {
+            var resultDiv = await DoSearch(keyword);
             // 切换到“单曲”
             var tab1 = resultDiv.FindElement(By.Id("cmdTab1"))
                 ?? throw new Exception("Tab1 not found.");
@@ -353,6 +366,7 @@ namespace NetEaseMusic_MCP
             var resultItems = resultList.FindElements(By.XPath("//div[contains(@data-log, 'cell_pc_songlist_song')]"));
 
             _searchResultDiv = resultDiv;
+            _searchResultType = SearchResultType.Music;
             _searchResults = resultItems;
 
             return $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
@@ -364,13 +378,36 @@ namespace NetEaseMusic_MCP
         }
 
         // 歌单搜索
-        public static void SearchMusicList(string keyword)
+        [McpServerTool, Description("Search music list with keyword. Note that the result may imcomplete.")]
+        public static async Task<string> SearchMusicList(string keyword)
         {
+            var resultDiv = await DoSearch(keyword);
+            // 切换到“歌单”
+            var tab2 = resultDiv.FindElement(By.Id("cmdTab2"))
+                ?? throw new Exception("Tab2 not found.");
+            tab2.Click();
+            await Task.Delay(1000);
+            var prompt = resultDiv.FindElement(By.ClassName("prompt"));
+            var musicCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
 
+            // 获取搜索结果
+            var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));
+            var resultItems = resultList.FindElements(By.XPath("//div[contains(@data-log, 'cell_pc_common_playlist')]"));
+
+            _searchResultDiv = resultDiv;
+            _searchResultType = SearchResultType.MusicList;
+            _searchResults = resultItems;
+
+            return $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
+                Index: {item.FindElement(By.ClassName("td-num")).Text}
+                Name: {item.FindElement(By.ClassName("title")).Text}
+                MusicCount: {item.FindElement(By.ClassName("td-trackCount")).Text}
+                PlayCount: {item.FindElement(By.ClassName("td-playCount")).Text}
+                """));
         }
 
         // 播放搜索结果
-        [McpServerTool, Description("Play the music in search result. Will add to current playlist.")]
+        [McpServerTool, Description("Play music(add to playlist) or music list(replace playlist) in search result.")]
         public static bool PlayInSearchResult([Description("The 'Index' in search result")] string index)
         {
             if (string.IsNullOrEmpty(index))
@@ -383,16 +420,30 @@ namespace NetEaseMusic_MCP
                 return false;
             }
 
-            var item = _searchResults.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
-                ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
-            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
-            action.MoveToElement(item).DoubleClick().Perform();
+            if (_searchResultType == SearchResultType.Music)
+            {
+                var item = _searchResults.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
+                                    ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
+                var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+                action.MoveToElement(item).DoubleClick().Perform();
+                return true;
+            }
+            else if (_searchResultType == SearchResultType.MusicList)
+            {
+                var item = _searchResults.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
+                                    ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
+                // oid: btn_pc_cover_play
+                var playButton = item.FindElement(By.XPath(".//button[contains(@data-log, 'btn_pc_cover_play')]"));
+                var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+                action.MoveToElement(item).Click(playButton).Perform();
+                return true;
+            }
 
-            return true;
+            return false;
         }
 
         // 播放搜索结果中的所有歌曲
-        [McpServerTool, Description("Play all the music in search result. Will replace current playlist.")]
+        [McpServerTool, Description("Play all the music(replace playlist) in search result. Play all music list is not supported.")]
         public static bool PlayAllInSearchResult()
         {
             if (_searchResultDiv == null)
@@ -400,11 +451,15 @@ namespace NetEaseMusic_MCP
                 return false;
             }
 
-            // class: play-all
-            var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
-            playAllButton.Click();
+            if (_searchResultType == SearchResultType.Music)
+            {
+                // class: play-all
+                var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
+                playAllButton.Click();
+                return true;
+            }
 
-            return true;
+            return false;
         }
 
         // 播放每日推荐

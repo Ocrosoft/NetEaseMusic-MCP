@@ -6,6 +6,7 @@ using OpenQA.Selenium.Support.UI;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace NetEaseMusic_MCP
 {
@@ -383,6 +384,36 @@ namespace NetEaseMusic_MCP
             // class: play-all
             var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
             playAllButton.Click();
+        }
+
+        // 播放每日推荐
+        [McpServerTool, Description("Play the daily music list(每日推荐). Will replace current playlist.")]
+        public static async Task<bool> PlayDailyMusicList()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                try
+                {
+                    // 切换到 “推荐”
+                    var dailyMusicListTab = ChromeDriver.FindElement(By.XPath("//div[contains(@data-log, 'cell_pc_main_tab_entrance')]"));
+                    dailyMusicListTab.Click();
+                    await Task.Delay(500);
+
+                    // hover DailyRecommendWrapper_
+                    var dailyMusicListWrapper = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'DailyRecommendWrapper_')]"));
+                    var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+                    action.MoveToElement(dailyMusicListWrapper).Perform();
+
+                    // hover 并点击播放
+                    var button = dailyMusicListWrapper.FindElement(By.TagName("button"));
+                    action.MoveToElement(button).Click().Perform();
+
+                    return true;
+                }
+                catch { }
+            }
+
+            return false;
         }
     }
 }

@@ -6,7 +6,6 @@ using OpenQA.Selenium.Support.UI;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace NetEaseMusic_MCP
 {
@@ -74,6 +73,16 @@ namespace NetEaseMusic_MCP
             var driverService = ChromeDriverService.CreateDefaultService(driver);
 
             _chromeDriver = new ChromeDriver(driverService, chromeOptions);
+        }
+
+        public static void StopNetEaseMusic()
+        {
+            if (_chromeDriver != null)
+            {
+                _chromeDriver.Quit();
+                _chromeDriver.Dispose();
+                _chromeDriver = null;
+            }
         }
 
         private static ReadOnlyCollection<IWebElement> FindActionButtons()

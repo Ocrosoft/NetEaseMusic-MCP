@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NetEaseMusic_MCP;
 
 NetEaseMusic.StartNetEaseMusic();
+AppDomain.CurrentDomain.ProcessExit += (sender, e) => NetEaseMusic.StopNetEaseMusic();
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddConsole(consoleLogOptions =>

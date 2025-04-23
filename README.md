@@ -121,7 +121,7 @@ ChromeDriver 可执行文件所在目录。<br/>
 
 ## 已知问题
 
-- 重启 MCP Server 时，没有关闭 chromedriver。
+- 在 Claude Desktop 中会有报错，但不影响使用（日志输出无法识别）。
 
 ## 开源协议
 

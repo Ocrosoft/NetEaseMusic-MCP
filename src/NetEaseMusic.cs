@@ -2,6 +2,7 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Internal;
+using OpenQA.Selenium.Support.UI;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -75,13 +76,9 @@ namespace NetEaseMusic_MCP
 
         private static ReadOnlyCollection<IWebElement> FindActionButtons()
         {
-            var playButtons = ChromeDriver.FindElements(By.Id("btn_pc_minibar_play"));
+            var playButtons = ChromeDriver.FindElements(By.Id("btn_pc_minibar_play")).Where(i => i.Displayed);
             foreach (var button in playButtons)
             {
-                if (!button.Displayed)
-                {
-                    continue;
-                }
                 // parent
                 var buttonsContainer = button.FindElement(By.XPath(".."));
                 return buttonsContainer.FindElements(By.TagName("button"));
@@ -217,6 +214,70 @@ namespace NetEaseMusic_MCP
             var likeButton = FindActionButton(ActionButton.Like);
             likeButton?.Click();
             return;
+        }
+
+        // 获取音量
+        [McpServerTool, Description("Get the current volume.")]
+        public static int GetVolume()
+        {
+            var volumeButton =
+                ChromeDriver.FindElements(By.XPath("//button[contains(@data-log, 'btn_pc_minibar_volume')]"))
+                    .Where(i => i.Displayed).FirstOrDefault()
+                ?? throw new InvalidOperationException("Volume button not found.");
+
+            // hover 出浮层
+            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+            action.MoveToElement(volumeButton).Perform();
+
+            // 等待滑块出现
+            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(1));
+            var volumeSlider = wait.Until(driver =>
+                driver.FindElements(By.XPath("//*[contains(@class, 'VolumnSlider_')]"))
+                    .Where(i => i.Displayed).FirstOrDefault());
+            var input = volumeSlider.FindElement(By.TagName("input"));
+            double percent = double.Parse(input.GetAttribute("value") ?? "0");
+
+            action.MoveToLocation(0, 0).Perform();
+
+            return (int)(percent * 100);
+        }
+
+        // 设置音量
+        [McpServerTool, Description("Set the volume.")]
+        public static string SetVolume([Description("The volume, must be between 0 and 100.")] int volume)
+        {
+            if (volume < 0 || volume > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(volume), "Volume must be between 0 and 100.");
+            }
+            var volumeButton =
+                ChromeDriver.FindElements(By.XPath("//button[contains(@data-log, 'btn_pc_minibar_volume')]"))
+                    .Where(i => i.Displayed).FirstOrDefault()
+                ?? throw new InvalidOperationException("Volume button not found.");
+
+            // hover 出浮层
+            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+            action.MoveToElement(volumeButton).Perform();
+
+            // 等待滑块出现
+            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(1));
+            var volumeSlider = wait.Until(driver =>
+                driver.FindElements(By.XPath("//*[contains(@class, 'VolumnSlider_')]"))
+                    .Where(i => i.Displayed).FirstOrDefault());
+            var height = volumeSlider.Size.Height;
+            // -height/2 是 100%，height/2 是 0%
+            var offsetY = (int)(height * (0.5 - volume / 100.0));
+            action.MoveToElement(volumeSlider, 0, offsetY).Click().Perform();
+
+            if (volume == 0)
+            {
+                // 点击最低能调到 1，静音点一下按钮
+                volumeButton.Click();
+            }
+
+            action.MoveToLocation(0, 0).Perform();
+
+            return "OK";
         }
     }
 }

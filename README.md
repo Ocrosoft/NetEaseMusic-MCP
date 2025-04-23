@@ -40,7 +40,8 @@ NetEaseMusic-MCP 是一个配合网易云音乐客户端使用的 Model Context 
 }
 ```
 5. 确保网易云音乐未在运行。
-6. 点击编辑器中，netease-music-mcp 上方显示的 `Start`。
+6. 点击编辑器中，netease-music-mcp 上方显示的 `Start`。<br/>
+   几秒后，将会自动启动网易云音乐。
 7. 在 Copilot Agent 模式下使用。
 
 以下为完整 settings.json 示例
@@ -99,6 +100,10 @@ ChromeDriver 可执行文件所在目录。<br/>
 **"播放 XXX 的歌"**<br/>
 
 欢迎提供更多的使用场景。
+
+### 网易云音乐窗口可以关闭吗？
+
+关闭通常来说不影响使用，如果遇到问题，请保持打开（无需保持前台）。
 
 ### macOS 版本？
 

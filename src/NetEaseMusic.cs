@@ -285,7 +285,7 @@ namespace NetEaseMusic_MCP
         private static ReadOnlyCollection<IWebElement> _searchResults = new([]);
 
         // 单曲搜索
-        [McpServerTool, Description("Search music with keyword. Only first page will be return.")]
+        [McpServerTool, Description("Search music with keyword. Note that the result may imcomplete.")]
         public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
         {
             var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
@@ -352,7 +352,7 @@ namespace NetEaseMusic_MCP
         }
 
         // 播放搜索结果
-        [McpServerTool, Description("Play the music in search result.")]
+        [McpServerTool, Description("Play the music in search result. Will add to current playlist.")]
         public static void PlayInSearchResult([Description("The 'Index' in search result")] string index)
         {
             if (string.IsNullOrEmpty(index))
@@ -372,7 +372,7 @@ namespace NetEaseMusic_MCP
         }
 
         // 播放搜索结果中的所有歌曲
-        [McpServerTool, Description("Play all the music in search result. Including musics not in the first page.")]
+        [McpServerTool, Description("Play all the music in search result. Will replace current playlist.")]
         public static void PlayAllInSearchResult()
         {
             if (_searchResultDiv == null)

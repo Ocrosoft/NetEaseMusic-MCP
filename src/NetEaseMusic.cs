@@ -66,7 +66,7 @@ namespace NetEaseMusic_MCP
             Console.WriteLine(driver);
             if (string.IsNullOrEmpty(driver) || !Directory.Exists(driver))
             {
-                driver = Path.GetDirectoryName(AppContext.BaseDirectory)!;
+                driver = Path.Combine(AppContext.BaseDirectory, "chromedriver", "win64");
             }
             driver = Path.GetFullPath(driver);
             Console.WriteLine($"Using ChromeDriver: {driver}");

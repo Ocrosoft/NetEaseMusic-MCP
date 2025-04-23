@@ -14,7 +14,7 @@ namespace NetEaseMusic_MCP
                     return _configuration;
                 }
                 ConfigurationBuilder builder = new();
-                builder.SetBasePath(Directory.GetCurrentDirectory());
+                builder.SetBasePath(AppContext.BaseDirectory);
                 builder.AddJsonFile("appsettings.json");
                 _configuration = builder.Build();
                 return _configuration;

@@ -25,7 +25,7 @@ while (true)
     Console.WriteLine("\n选项:");
     Console.WriteLine("1. 显示工具参数");
     Console.WriteLine("2. 调用工具");
-    Console.WriteLine("0. 推出");
+    Console.WriteLine("0. 退出");
     Console.Write("输入选项：");
 
     var choice = Console.ReadLine();
@@ -149,16 +149,16 @@ while (true)
             {
                 // 调用工具
                 var result = await tool.InvokeAsync(new AIFunctionArguments(arguments));
-                Console.WriteLine($"Tool result: {result}");
+                Console.WriteLine($"工具调用结果：{result}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error calling tool: {ex.Message}");
+                Console.WriteLine($"调用工具错误：{ex.Message}");
             }
         }
         else
         {
-            Console.WriteLine("Invalid tool index.");
+            Console.WriteLine("无效序号。");
         }
     }
 }

@@ -16,12 +16,15 @@ NetEaseMusic-MCP 是一个配合网易云音乐客户端使用的 Model Context 
 
 ## 运行环境要求
 
-- .NET 9.0 SDK 或运行时
+- .NET 9.0 SDK 或运行时（StandAlone 版本不需要）
 - 网易云音乐客户端（测试版本为 3.1.7）
 
 ## 使用指南
 
 1. 从 Release 下载最新版本，解压到任意目录待后续使用。
+   如何选择版本？
+   - Framework：包体小，需要安装 .NET 9.0 运行时
+   - StandAlone：包体大，无需运行时
 2. 配置你的 MCP Client（Visual Studio Code、Claude Desktop、...）。
 
 ### 配置 Visual Studio Code（Windows）
@@ -105,6 +108,15 @@ ChromeDriver 可执行文件所在目录。<br/>
 
 应用本身不会上传任何数据。<br/>
 播放状态、音量、歌单等数据在需要时会提供给 AI，如果不同意此数据的共享，请不要使用。
+
+### 重启 MCP 要重启网易云音乐吗？
+
+如果要重启 MCP Server 或 MCP Client，可以不用重启网易云音乐。<br/>
+但是如果开启了动态端口，那么需要先退出网易云音乐。
+
+## 已知问题
+
+- 重启 MCP Server 时，没有关闭 chromedriver。
 
 ## 开源协议
 

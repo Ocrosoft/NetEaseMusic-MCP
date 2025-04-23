@@ -279,5 +279,84 @@ namespace NetEaseMusic_MCP
 
             return "OK";
         }
+
+        private static ReadOnlyCollection<IWebElement> _searchResult = new([]);
+
+        // 单曲搜索
+        [McpServerTool, Description("Search music with keyword.")]
+        public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
+        {
+            var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
+                  .Where(i => i.Displayed).FirstOrDefault()
+                  ?? throw new InvalidOperationException("Search button not found.");
+            var searchInput = searchWrapper.FindElements(By.TagName("input")).FirstOrDefault()
+                ?? throw new InvalidOperationException("Search input not found.");
+            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+            action.MoveToElement(searchWrapper).Click().Perform();
+            var clearButton = searchWrapper.FindElement(By.ClassName("cmd-input-clearbtn"));
+            clearButton.Click();
+            await Task.Delay(1000);
+            searchInput.SendKeys(keyword);
+            await Task.Delay(1000);
+            searchInput.SendKeys(Keys.Enter);
+
+            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(5));
+            var resultDiv = wait.Until(driver =>
+            {
+                // 修改搜索关键词时，元素还在但是内容不同
+                var result = driver.FindElements(By.Id("page_pc_search_result"))
+                        .Where(i => i.Displayed).FirstOrDefault();
+                var resultText = result?.FindElement(By.ClassName("keyword"))?.Text;
+                if (keyword != resultText)
+                {
+                    return null;
+                }
+                return result;
+            });
+            // 切换到“单曲”
+            var tab1 = resultDiv.FindElement(By.Id("cmdTab1"))
+                ?? throw new Exception("Tab1 not found.");
+            tab1.Click();
+            await Task.Delay(1000);
+
+            // 获取搜索结果
+            var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"))
+                ?? throw new Exception("Result list not found.");
+            var resultItems = resultList.FindElements(By.XPath("//div[contains(@data-log, 'cell_pc_songlist_song')]"));
+            _searchResult = resultItems;
+
+            return string.Join("\n---\n", resultItems.Select(item => $"""
+                Index: {item.FindElement(By.ClassName("td-num")).Text}
+                Name: {item.FindElement(By.ClassName("title")).Text}
+                Artists: {item.FindElement(By.ClassName("artists")).GetAttribute("title")}
+                Album: {item.FindElement(By.ClassName("td-album")).Text}
+                """));
+        }
+
+        // 歌单搜索
+        public static void SearchMusicList(string keyword)
+        {
+
+        }
+
+        // 播放搜索结果
+        [McpServerTool, Description("Play the music in search result.")]
+        public static void PlayInSearchResult([Description("The 'Index' in search result")] string index)
+        {
+            if (string.IsNullOrEmpty(index))
+            {
+                throw new ArgumentNullException(nameof(index), "Index cannot be null or empty.");
+            }
+
+            if (_searchResult.Count == 0)
+            {
+                throw new InvalidOperationException("No search result found.");
+            }
+
+            var item = _searchResult.FirstOrDefault(i => i.FindElement(By.ClassName("td-num")).Text == index)
+                ?? throw new ArgumentOutOfRangeException(nameof(index), "Index out of range.");
+            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+            action.MoveToElement(item).DoubleClick().Perform();
+        }
     }
 }

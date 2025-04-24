@@ -504,5 +504,76 @@ namespace NetEaseMusic_MCP
             var musicNameAndArtists = musicInfo.FindElement(By.ClassName("title")).Text;
             return musicNameAndArtists;
         }
+
+        // 清空播放列表
+        [McpServerTool, Description("Clear the current playlist.")]
+        public static bool ClearPlayList()
+        {
+            if (!HasPlayList())
+            {
+                return false;
+            }
+
+            CloseSideSheet();
+
+            // 点击打开播放列表浮层
+            var playlistButton = ChromeDriver.FindElements(By.XPath("//span[contains(@aria-label, 'playlist')]/../.."))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Playlist button not found.");
+            playlistButton.Click();
+            // 等待浮层
+            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(5));
+            var playlistDiv = wait.Until(driver =>
+            {
+                var div = driver.FindElements(By.Id("page_pc_playlist"))
+                    .Where(i => i.Displayed).FirstOrDefault();
+                if (div == null)
+                {
+                    return null;
+                }
+                return div;
+            });
+            // aria-label="delete"/../..
+            var clearButton = playlistDiv.FindElements(By.XPath("//*[contains(@aria-label, 'delete')]/../.."))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Clear button not found.");
+            clearButton.Click();
+
+            // wait confirm window
+            var confirmContainer = wait.Until(driver =>
+            {
+                var div = driver.FindElements(By.XPath("//*[contains(@class, 'PortalWrapper_')]"))
+                    .Where(i => i.Displayed).FirstOrDefault();
+                if (div == null)
+                {
+                    return null;
+                }
+                return div;
+            });
+            // click class="PortalWrapper_*" -> aria-label="confirm"
+            var confirmButton = confirmContainer.FindElements(By.XPath("//*[contains(@aria-label, 'confirm')]"))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Confirm button not found.");
+            confirmButton.Click();
+
+            CloseSideSheet();
+
+            return true;
+        }
+
+        private static bool IsSideSheetOpen()
+        {
+            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
+                .Where(i => i.Displayed).FirstOrDefault();
+            return sideSheet != null;
+        }
+
+        private static void CloseSideSheet()
+        {
+            if (!IsSideSheetOpen())
+            {
+                return;
+            }
+            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
+                .Where(i => i.Displayed).FirstOrDefault();
+            sideSheet?.Click();
+        }
     }
 }

@@ -491,5 +491,18 @@ namespace NetEaseMusic_MCP
 
             return false;
         }
+
+        // 获取当前播放音乐
+        [McpServerTool, Description("Get the current music info. Empty if no playlist.")]
+        public static string GetCurrentPlayingMusic()
+        {
+            if (!HasPlayList())
+            {
+                return "";
+            }
+            var musicInfo = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'songPlayInfo_')]"));
+            var musicNameAndArtists = musicInfo.FindElement(By.ClassName("title")).Text;
+            return musicNameAndArtists;
+        }
     }
 }

@@ -448,7 +448,12 @@ namespace NetEaseMusic_MCP
             tab1.Click();
             await Task.Delay(1000);
             var prompt = resultDiv.FindElement(By.ClassName("prompt"));
-            var musicCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
+            var searchResultCountMatch = new Regex("\\d+").Match(prompt.Text);
+            if (!searchResultCountMatch.Success)
+            {
+                return $"No result for keyword: {keyword}";
+            }
+            var musicCount = int.Parse(searchResultCountMatch.Value);
 
             // 获取搜索结果
             var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));
@@ -479,7 +484,12 @@ namespace NetEaseMusic_MCP
             tab2.Click();
             await Task.Delay(1000);
             var prompt = resultDiv.FindElement(By.ClassName("prompt"));
-            var musicCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
+            var searchResultCountMatch = new Regex("\\d+").Match(prompt.Text);
+            if (!searchResultCountMatch.Success)
+            {
+                return $"No result for keyword: {keyword}";
+            }
+            var musicListCount = int.Parse(searchResultCountMatch.Value);
 
             // 获取搜索结果
             var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));
@@ -489,7 +499,7 @@ namespace NetEaseMusic_MCP
             _searchResultType = SearchResultType.MusicList;
             _searchResults = resultItems;
 
-            string ret = $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
+            string ret = $"Total: {musicListCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
                 Index: {item.FindElement(By.ClassName("td-num")).Text}
                 Name: {item.FindElement(By.ClassName("title")).Text}
                 MusicCount: {item.FindElement(By.ClassName("td-trackCount")).Text}
@@ -510,7 +520,12 @@ namespace NetEaseMusic_MCP
             tab7.Click();
             await Task.Delay(1000);
             var prompt = resultDiv.FindElement(By.ClassName("prompt"));
-            var albumCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
+            var searchResultCountMatch = new Regex("\\d+").Match(prompt.Text);
+            if (!searchResultCountMatch.Success)
+            {
+                return $"No result for keyword: {keyword}";
+            }
+            var albumCount = int.Parse(searchResultCountMatch.Value);
 
             // 获取搜索结果
             var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));

@@ -18,7 +18,7 @@ namespace NetEaseMusic_MCP
         private static readonly string DEFAULT_NETEASE_MUSIC_PATH = @"C:\Program Files\NetEase\CloudMusic\cloudmusic.exe";
 
         private static ChromeDriver? _chromeDriver = null;
-        private static ChromeDriver ChromeDriver
+        public static ChromeDriver ChromeDriver
         {
             get
             {
@@ -84,42 +84,12 @@ namespace NetEaseMusic_MCP
                 _chromeDriver = null;
             }
         }
+    }
 
-        private static ReadOnlyCollection<IWebElement> FindActionButtons()
-        {
-            var playButtons = ChromeDriver.FindElements(By.Id("btn_pc_minibar_play")).Where(i => i.Displayed);
-            foreach (var button in playButtons)
-            {
-                // parent
-                var buttonsContainer = button.FindElement(By.XPath(".."));
-                return buttonsContainer.FindElements(By.TagName("button"));
-            }
-            return new([]);
-        }
-        enum ActionButton
-        {
-            Like = 0,
-            Prev = 1,
-            Play = 2,
-            Next = 3,
-        }
-        private static IWebElement? FindActionButton(ActionButton index)
-        {
-            var buttons = FindActionButtons();
-            if (index < 0 || (int)index >= buttons.Count)
-            {
-                return null;
-            }
-            return buttons[(int)index];
-        }
-
-        // 当前是否有活跃的播放列表
-        [McpServerTool, Description("Check if there is an active playlist. If not, resume or pause are not allowed.")]
-        public static bool HasPlayList()
-        {
-            var playButtons = FindActionButton(ActionButton.Play);
-            return playButtons != null;
-        }
+    [McpServerToolType]
+    public sealed class NetEaseMusicPlayController
+    {
+        private static ChromeDriver ChromeDriver => NetEaseMusic.ChromeDriver;
 
         // 当前是否正在播放
         [McpServerTool, Description("Check if the music is playing.")]
@@ -299,54 +269,173 @@ namespace NetEaseMusic_MCP
             return "OK";
         }
 
-        private static IWebElement? _searchResultDiv = null;
-        enum SearchResultType
+        // 当前是否有活跃的播放列表
+        [McpServerTool, Description("Check if there is an active playlist. If not, resume or pause are not allowed.")]
+        public static bool HasPlayList()
+        {
+            var playButtons = FindActionButton(ActionButton.Play);
+            return playButtons != null;
+        }
+
+        // 清空播放列表
+        [McpServerTool, Description("Clear the current playlist.")]
+        public static bool ClearPlayList()
+        {
+            if (!HasPlayList())
+            {
+                return false;
+            }
+
+            CloseSideSheet();
+
+            // 点击打开播放列表浮层
+            var playlistButton = ChromeDriver.FindElements(By.XPath("//span[contains(@aria-label, 'playlist')]/../.."))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Playlist button not found.");
+            playlistButton.Click();
+            // 等待浮层
+            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(5));
+            var playlistDiv = wait.Until(driver =>
+            {
+                var div = driver.FindElements(By.Id("page_pc_playlist"))
+                    .Where(i => i.Displayed).FirstOrDefault();
+                if (div == null)
+                {
+                    return null;
+                }
+                return div;
+            });
+            // aria-label="delete"/../..
+            var clearButton = playlistDiv.FindElements(By.XPath("//*[contains(@aria-label, 'delete')]/../.."))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Clear button not found.");
+            clearButton.Click();
+
+            // wait confirm window
+            var confirmContainer = wait.Until(driver =>
+            {
+                var div = driver.FindElements(By.XPath("//*[contains(@class, 'PortalWrapper_')]"))
+                    .Where(i => i.Displayed).FirstOrDefault();
+                if (div == null)
+                {
+                    return null;
+                }
+                return div;
+            });
+            // click class="PortalWrapper_*" -> aria-label="confirm"
+            var confirmButton = confirmContainer.FindElements(By.XPath("//*[contains(@aria-label, 'confirm')]"))
+                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Confirm button not found.");
+            confirmButton.Click();
+
+            CloseSideSheet();
+
+            return true;
+        }
+
+        // 播放每日推荐
+        [McpServerTool, Description("Play the daily music list(每日推荐).")]
+        public static async Task<bool> PlayDailyMusicList()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                try
+                {
+                    // 切换到 “推荐”
+                    var dailyMusicListTab = ChromeDriver.FindElement(By.XPath("//div[contains(@data-log, 'cell_pc_main_tab_entrance')]"));
+                    dailyMusicListTab.Click();
+                    await Task.Delay(500);
+
+                    // hover DailyRecommendWrapper_
+                    var dailyMusicListWrapper = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'DailyRecommendWrapper_')]"));
+                    var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+                    action.MoveToElement(dailyMusicListWrapper).Perform();
+
+                    // hover 并点击播放
+                    var button = dailyMusicListWrapper.FindElement(By.TagName("button"));
+                    action.MoveToElement(button).Click().Perform();
+
+                    return true;
+                }
+                catch { }
+            }
+
+            return false;
+        }
+
+        // 获取当前播放音乐
+        [McpServerTool, Description("Get the current music info. Empty if no playlist.")]
+        public static string GetCurrentPlayingMusic()
+        {
+            if (!HasPlayList())
+            {
+                return "";
+            }
+            var musicInfo = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'songPlayInfo_')]"));
+            var musicNameAndArtists = musicInfo.FindElement(By.ClassName("title")).Text;
+            return musicNameAndArtists;
+        }
+
+        private enum ActionButton
+        {
+            Like = 0,
+            Prev = 1,
+            Play = 2,
+            Next = 3,
+        }
+
+        private static ReadOnlyCollection<IWebElement> FindActionButtons()
+        {
+            var playButtons = ChromeDriver.FindElements(By.Id("btn_pc_minibar_play")).Where(i => i.Displayed);
+            foreach (var button in playButtons)
+            {
+                // parent
+                var buttonsContainer = button.FindElement(By.XPath(".."));
+                return buttonsContainer.FindElements(By.TagName("button"));
+            }
+            return new([]);
+        }
+
+        private static IWebElement? FindActionButton(ActionButton index)
+        {
+            var buttons = FindActionButtons();
+            if (index < 0 || (int)index >= buttons.Count)
+            {
+                return null;
+            }
+            return buttons[(int)index];
+        }
+
+        private static bool IsSideSheetOpen()
+        {
+            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
+                .Where(i => i.Displayed).FirstOrDefault();
+            return sideSheet != null;
+        }
+
+        private static void CloseSideSheet()
+        {
+            if (!IsSideSheetOpen())
+            {
+                return;
+            }
+            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
+                .Where(i => i.Displayed).FirstOrDefault();
+            sideSheet?.Click();
+        }
+    }
+
+    [McpServerToolType]
+    public sealed class NetEaseMusicSearcher
+    {
+        private static ChromeDriver ChromeDriver => NetEaseMusic.ChromeDriver;
+
+        private enum SearchResultType
         {
             Music = 0,
             MusicList = 1,
         }
+
+        private static IWebElement? _searchResultDiv = null;
         private static SearchResultType _searchResultType = SearchResultType.Music;
         private static ReadOnlyCollection<IWebElement> _searchResults = new([]);
-
-        private static async Task<IWebElement> DoSearch(string keyword)
-        {
-            var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
-                  .Where(i => i.Displayed).FirstOrDefault()
-                  ?? throw new InvalidOperationException("Search button not found.");
-            var searchInput = searchWrapper.FindElements(By.TagName("input")).FirstOrDefault()
-                ?? throw new InvalidOperationException("Search input not found.");
-            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
-            action.MoveToElement(searchWrapper).Click().Perform();
-
-            try
-            {
-                // 允许不存在
-                var clearButton = searchWrapper.FindElement(By.ClassName("cmd-input-clearbtn"));
-                clearButton?.Click();
-            }
-            catch { }
-
-            await Task.Delay(1000);
-            searchInput.SendKeys(keyword);
-            await Task.Delay(1000);
-            searchInput.SendKeys(Keys.Enter);
-
-            var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(5));
-            var resultDiv = wait.Until(driver =>
-            {
-                // 修改搜索关键词时，元素还在但是内容不同
-                var result = driver.FindElements(By.Id("page_pc_search_result"))
-                        .Where(i => i.Displayed).FirstOrDefault();
-                var resultText = result?.FindElement(By.ClassName("keyword"))?.Text;
-                if (keyword != resultText)
-                {
-                    return null;
-                }
-                return result;
-            });
-
-            return resultDiv;
-        }
 
         // 单曲搜索
         [McpServerTool, Description("Search music with keyword.")]
@@ -469,118 +558,44 @@ namespace NetEaseMusic_MCP
             return false;
         }
 
-        // 播放每日推荐
-        [McpServerTool, Description("Play the daily music list(每日推荐).")]
-        public static async Task<bool> PlayDailyMusicList()
+        private static async Task<IWebElement> DoSearch(string keyword)
         {
-            for (int i = 0; i < 3; i++)
+            var searchWrapper = ChromeDriver.FindElements(By.XPath("//div[contains(@class, 'SearchWrapper_')]"))
+                  .Where(i => i.Displayed).FirstOrDefault()
+                  ?? throw new InvalidOperationException("Search button not found.");
+            var searchInput = searchWrapper.FindElements(By.TagName("input")).FirstOrDefault()
+                ?? throw new InvalidOperationException("Search input not found.");
+            var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
+            action.MoveToElement(searchWrapper).Click().Perform();
+
+            try
             {
-                try
-                {
-                    // 切换到 “推荐”
-                    var dailyMusicListTab = ChromeDriver.FindElement(By.XPath("//div[contains(@data-log, 'cell_pc_main_tab_entrance')]"));
-                    dailyMusicListTab.Click();
-                    await Task.Delay(500);
-
-                    // hover DailyRecommendWrapper_
-                    var dailyMusicListWrapper = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'DailyRecommendWrapper_')]"));
-                    var action = new OpenQA.Selenium.Interactions.Actions(ChromeDriver);
-                    action.MoveToElement(dailyMusicListWrapper).Perform();
-
-                    // hover 并点击播放
-                    var button = dailyMusicListWrapper.FindElement(By.TagName("button"));
-                    action.MoveToElement(button).Click().Perform();
-
-                    return true;
-                }
-                catch { }
+                // 允许不存在
+                var clearButton = searchWrapper.FindElement(By.ClassName("cmd-input-clearbtn"));
+                clearButton?.Click();
             }
+            catch { }
 
-            return false;
-        }
+            await Task.Delay(1000);
+            searchInput.SendKeys(keyword);
+            await Task.Delay(1000);
+            searchInput.SendKeys(Keys.Enter);
 
-        // 获取当前播放音乐
-        [McpServerTool, Description("Get the current music info. Empty if no playlist.")]
-        public static string GetCurrentPlayingMusic()
-        {
-            if (!HasPlayList())
-            {
-                return "";
-            }
-            var musicInfo = ChromeDriver.FindElement(By.XPath("//div[contains(@class, 'songPlayInfo_')]"));
-            var musicNameAndArtists = musicInfo.FindElement(By.ClassName("title")).Text;
-            return musicNameAndArtists;
-        }
-
-        // 清空播放列表
-        [McpServerTool, Description("Clear the current playlist.")]
-        public static bool ClearPlayList()
-        {
-            if (!HasPlayList())
-            {
-                return false;
-            }
-
-            CloseSideSheet();
-
-            // 点击打开播放列表浮层
-            var playlistButton = ChromeDriver.FindElements(By.XPath("//span[contains(@aria-label, 'playlist')]/../.."))
-                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Playlist button not found.");
-            playlistButton.Click();
-            // 等待浮层
             var wait = new WebDriverWait(ChromeDriver, TimeSpan.FromSeconds(5));
-            var playlistDiv = wait.Until(driver =>
+            var resultDiv = wait.Until(driver =>
             {
-                var div = driver.FindElements(By.Id("page_pc_playlist"))
-                    .Where(i => i.Displayed).FirstOrDefault();
-                if (div == null)
+                // 修改搜索关键词时，元素还在但是内容不同
+                var result = driver.FindElements(By.Id("page_pc_search_result"))
+                        .Where(i => i.Displayed).FirstOrDefault();
+                var resultText = result?.FindElement(By.ClassName("keyword"))?.Text;
+                if (keyword != resultText)
                 {
                     return null;
                 }
-                return div;
+                return result;
             });
-            // aria-label="delete"/../..
-            var clearButton = playlistDiv.FindElements(By.XPath("//*[contains(@aria-label, 'delete')]/../.."))
-                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Clear button not found.");
-            clearButton.Click();
 
-            // wait confirm window
-            var confirmContainer = wait.Until(driver =>
-            {
-                var div = driver.FindElements(By.XPath("//*[contains(@class, 'PortalWrapper_')]"))
-                    .Where(i => i.Displayed).FirstOrDefault();
-                if (div == null)
-                {
-                    return null;
-                }
-                return div;
-            });
-            // click class="PortalWrapper_*" -> aria-label="confirm"
-            var confirmButton = confirmContainer.FindElements(By.XPath("//*[contains(@aria-label, 'confirm')]"))
-                .Where(i => i.Displayed).FirstOrDefault() ?? throw new InvalidOperationException("Confirm button not found.");
-            confirmButton.Click();
-
-            CloseSideSheet();
-
-            return true;
-        }
-
-        private static bool IsSideSheetOpen()
-        {
-            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
-                .Where(i => i.Displayed).FirstOrDefault();
-            return sideSheet != null;
-        }
-
-        private static void CloseSideSheet()
-        {
-            if (!IsSideSheetOpen())
-            {
-                return;
-            }
-            var sideSheet = ChromeDriver.FindElements(By.ClassName("cmd-sidesheet"))
-                .Where(i => i.Displayed).FirstOrDefault();
-            sideSheet?.Click();
+            return resultDiv;
         }
     }
 }

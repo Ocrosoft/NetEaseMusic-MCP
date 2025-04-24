@@ -499,6 +499,37 @@ namespace NetEaseMusic_MCP
             return ret;
         }
 
+        // 专辑搜索
+        [McpServerTool, Description("Search album with keyword.")]
+        public static async Task<string> SearchAlbum(string keyword)
+        {
+            var resultDiv = DoSearch(keyword).Result;
+            // 切换到“专辑”
+            var tab7 = resultDiv.FindElement(By.Id("cmdTab7"))
+                ?? throw new Exception("Tab7 not found.");
+            tab7.Click();
+            await Task.Delay(1000);
+            var prompt = resultDiv.FindElement(By.ClassName("prompt"));
+            var albumCount = int.Parse(new Regex("\\d+").Match(prompt.Text).Value);
+
+            // 获取搜索结果
+            var resultList = resultDiv.FindElement(By.XPath("//*[contains(@class, 'ReactVirtualized_')]"));
+            var resultItems = resultList.FindElements(By.XPath("//div[contains(@data-log, 'cell_pc_albumlist_album')]"));
+
+            _searchResultDiv = resultDiv;
+            _searchResultType = SearchResultType.MusicList;
+            _searchResults = resultItems;
+
+            string ret = $"Total: {albumCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
+                Index: {item.FindElement(By.ClassName("td-num")).Text}
+                Name: {item.FindElement(By.ClassName("title")).Text}
+                Artists: {item.FindElement(By.ClassName("td-artists")).Text}
+                PublishTime: {item.FindElement(By.ClassName("td-publishTime")).Text}
+                """));
+            ret += "\n\nThis result may imcomplete.\nYou can use PlayInSearchResult to play.";
+            return ret;
+        }
+
         // 播放搜索结果
         [McpServerTool, Description("Play music or music list in search result.")]
         public static bool PlayInSearchResult([Description("The 'Index' in search result")] string index)

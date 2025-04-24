@@ -349,7 +349,7 @@ namespace NetEaseMusic_MCP
         }
 
         // 单曲搜索
-        [McpServerTool, Description("Search music with keyword. Note that the result may imcomplete.")]
+        [McpServerTool, Description("Search music with keyword.")]
         public static async Task<string> SearchMusic([Description("The keyword")] string keyword)
         {
             var resultDiv = await DoSearch(keyword);
@@ -369,16 +369,18 @@ namespace NetEaseMusic_MCP
             _searchResultType = SearchResultType.Music;
             _searchResults = resultItems;
 
-            return $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
+            string ret = $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
                 Index: {item.FindElement(By.ClassName("td-num")).Text}
                 Name: {item.FindElement(By.ClassName("title")).Text}
                 Artists: {item.FindElement(By.ClassName("artists")).GetAttribute("title")}
                 Album: {item.FindElement(By.ClassName("td-album")).Text}
                 """));
+            ret += "\n\nThis result may imcomplete.\nYou can use PlayInSearchResult or PlayAllInSearchResult to play.";
+            return ret;
         }
 
         // 歌单搜索
-        [McpServerTool, Description("Search music list with keyword. Note that the result may imcomplete.")]
+        [McpServerTool, Description("Search music list with keyword.")]
         public static async Task<string> SearchMusicList(string keyword)
         {
             var resultDiv = await DoSearch(keyword);
@@ -398,16 +400,18 @@ namespace NetEaseMusic_MCP
             _searchResultType = SearchResultType.MusicList;
             _searchResults = resultItems;
 
-            return $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
+            string ret = $"Total: {musicCount}\n---\n" + string.Join("\n---\n", resultItems.Select(item => $"""
                 Index: {item.FindElement(By.ClassName("td-num")).Text}
                 Name: {item.FindElement(By.ClassName("title")).Text}
                 MusicCount: {item.FindElement(By.ClassName("td-trackCount")).Text}
                 PlayCount: {item.FindElement(By.ClassName("td-playCount")).Text}
                 """));
+            ret += "\n\nThis result may imcomplete.\nYou can use PlayInSearchResult to play.";
+            return ret;
         }
 
         // 播放搜索结果
-        [McpServerTool, Description("Play music(add to playlist) or music list(replace playlist) in search result.")]
+        [McpServerTool, Description("Play music or music list in search result.")]
         public static bool PlayInSearchResult([Description("The 'Index' in search result")] string index)
         {
             if (string.IsNullOrEmpty(index))
@@ -443,7 +447,7 @@ namespace NetEaseMusic_MCP
         }
 
         // 播放搜索结果中的所有歌曲
-        [McpServerTool, Description("Play all the music(replace playlist) in search result. Play all music list is not supported.")]
+        [McpServerTool, Description("Play all the music in search result.")]
         public static bool PlayAllInSearchResult()
         {
             if (_searchResultDiv == null)
@@ -453,17 +457,20 @@ namespace NetEaseMusic_MCP
 
             if (_searchResultType == SearchResultType.Music)
             {
-                // class: play-all
                 var playAllButton = _searchResultDiv.FindElement(By.XPath("//button[contains(@class, 'play-all')]"));
                 playAllButton.Click();
                 return true;
+            }
+            else if (_searchResultType == SearchResultType.MusicList)
+            {
+                Console.WriteLine("Play all music list is not supported.");
             }
 
             return false;
         }
 
         // 播放每日推荐
-        [McpServerTool, Description("Play the daily music list(每日推荐). Will replace current playlist.")]
+        [McpServerTool, Description("Play the daily music list(每日推荐).")]
         public static async Task<bool> PlayDailyMusicList()
         {
             for (int i = 0; i < 3; i++)
